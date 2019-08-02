@@ -44,7 +44,7 @@ def placeholder_from_spaces(*args):
 def mlp(x, hid_size=(32,), activ=tf.tanh, output_activ=None):
     for h in hid_size[:-1]:
         x = tf.layers.dense(x, h, activ)
-    return tf.layers.dense(x, units=hid_size[-1], activ=output_activ)
+    return tf.layers.dense(x, hid_size[-1], output_activ)
 
 
 def get_vars(scope=''):

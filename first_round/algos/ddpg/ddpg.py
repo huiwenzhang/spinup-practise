@@ -73,6 +73,7 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     env, test_env = env_fn(), env_fn()
     obs_dim = env.observation.shape[0]
     act_dim = env.action_space.shape[0]
+    act_limit = env.action_space.high[0]
 
     ac_kwargs['action_space'] = env.action_space
 
@@ -85,7 +86,7 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
     with tf.variable_scope('target'):
         # we need q_targ(s, pi_targ(s)), so a_ph is not used
-        pi_targ, _, q_pi_targ = actor_critic(x_ph, a_ph, **ac_kwargs)
+        pi_targ, _, q_pi_targ = actor_critic(x2_ph, a_ph, **ac_kwargs)
 
     # Exprience buffer
     buf = ReplayBuffer(obs_dim=obs_dim, act_dim=act_dim, size=replay_size)
