@@ -1,7 +1,9 @@
+import time
+
+import gym
 import numpy as np
 import tensorflow as tf
-import gym
-import time
+
 import first_round.algos.trpo.core as core
 from first_round.utils.logx import EpochLogger
 from first_round.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
@@ -20,8 +22,9 @@ class GAEBuffer:
         self.val_buf = np.zeros(size, dtype=np.float32)
         # we store logp because we want to esitmate kl between new pi and old_pi
         # we can't recompute an outdated pi, so store it
-        self.logp_buf = np.zeros(size, dtype=np.float23)
-        self.info_bufs = {k: np.zeros([size] + list[v], dtype=np.float32) for k, v in info_shapes}
+        self.logp_buf = np.zeros(size, dtype=np.float32)
+        print(info_shapes)
+        self.info_bufs = {k: np.zeros([size] + list(v), dtype=np.float32) for k, v in info_shapes.items()}
         self.sorted_info_keys = core.keys_as_sorted_list(self.info_bufs)
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
@@ -203,7 +206,7 @@ def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 kl, pi_l_new = set_and_eval(step=backtrack_coeff ** j)
                 if kl <= delta and pi_l_new <= pi_l_old:
                     logger.log('Accepte new parameters at %d of line search.' % j)
-                    logger.save(BacktrackIters=j)
+                    logger.store(BacktrackIters=j)
                     break
 
                 if j == backtrack_iters - 1:
@@ -227,13 +230,13 @@ def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # MAIN LOOP
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
-            a, v_t, logp_t, info_t = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1, -1)})
-            a = a[0]
+            outs = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1, -1)})
+            a, v_t, logp_t, info_t = outs[0][0], outs[1], outs[2], outs[3:]
             buf.store(o, a, r, v_t, logp_t, info_t)
             logger.store(VVals=v_t)
 
             o, r, d, _ = env.step(a)
-            ep_ret += 1
+            ep_ret += r
             ep_len += 1
 
             terminal = d or (ep_len == max_ep_len)  # terminal when episode is done

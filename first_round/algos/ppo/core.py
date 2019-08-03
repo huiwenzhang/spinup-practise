@@ -30,7 +30,7 @@ def placeholders(*args):
 
 def placeholder_from_space(space):
     if isinstance(space, Box):
-        return placeholder(Box.shape)
+        return placeholder(space.shape)
     elif isinstance(space, Discrete):
         return tf.placeholder(dtype=tf.int32, shape=(None,))
     else:
@@ -83,7 +83,7 @@ def mlp_categorical_policy(x, a, hid_size, activ, output_activ, action_space):
 def mlp_gaussian_policy(x, a, hid_size, activ, output_activ, action_space):
     act_dim = a.shape.as_list()[-1]
     mu = mlp(x, list(hid_size) + [act_dim], activ, output_activ)
-    log_std = tf.get_variable('log_std', initializer=-0.5 * np.oens(act_dim, dtype=np.float32))
+    log_std = tf.get_variable('log_std', initializer=-0.5 * np.ones(act_dim, dtype=np.float32))
     std = tf.exp(log_std)
     pi = mu + tf.random_normal(tf.shape(mu)) * std
     logp = gaussian_likelihood(a, mu, log_std)

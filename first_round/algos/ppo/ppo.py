@@ -31,13 +31,13 @@ class PPOBuffer:
 
     def finish_path(self, last_val=0):
         path_slice = slice(self.path_start_idx, self.ptr)
-        rews = np.append(self.rew_buf[slice], last_val)
-        vals = np.append(self.val_buf[slice], last_val)
+        rews = np.append(self.rew_buf[path_slice], last_val)
+        vals = np.append(self.val_buf[path_slice], last_val)
 
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
         self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
 
-        self.ret_buf[slice] = core.discount_cumsum(rews, self.gamma)[:-1]
+        self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
 
         self.path_start_idx = self.ptr
 
@@ -106,7 +106,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     get_action_ops = [pi, v, logp_pi]
 
     # Experience buffer
-    local_steps_per_epoch = tuple(steps_per_epoch / num_procs())
+    local_steps_per_epoch = int(steps_per_epoch / num_procs())
     buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
 
     # Count Variables
@@ -156,7 +156,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             sess.run(train_v, feed_dict=inputs)
 
         # Log changes
-        pi_l_new, v_l_new, kl, cf = sess.run([pi_loss, v_loss, approx_ent], feed_dict=inputs)
+        pi_l_new, v_l_new, kl, cf = sess.run([pi_loss, v_loss, approx_kl, clipfrac], feed_dict=inputs)
         logger.store(LossPi=pi_l_old, LossV=v_l_old, KL=kl, Entropy=ent, ClipFrac=cf,
                      DeltaLossPi=(pi_l_new - pi_l_old), DeltaLossV=(v_l_new - v_l_old))
 
@@ -173,7 +173,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             logger.store(VVals=v_t)
 
             o, r, d, _ = env.step(a[0])
-            ep_ret += 1
+            ep_ret += r
             ep_len += 1
 
             terminal = d or (ep_len == max_ep_len)
@@ -227,7 +227,7 @@ if __name__ == '__main__':
 
     mpi_fork(args.cpu)  # run parallel code with mpi
 
-    from first_round.run_utils import setup_logger_kwargs
+    from first_round.utils.run_utils import setup_logger_kwargs
 
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
 
