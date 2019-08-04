@@ -25,7 +25,7 @@ class ReplayBuffer:
         self.size = min(self.size + 1, self.max_size)  # actual buffer size
 
     def sample_batch(self, batch_size=32):
-        idxs = np.random.randomint(0, self.size, size=batch_size)
+        idxs = np.random.randint(0, self.size, size=batch_size)
         return dict(obs1=self.obs1_buf[idxs],
                     obs2=self.obs2_buf[idxs],
                     acts=self.acts_buf[idxs],
@@ -71,7 +71,7 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     np.random.seed(seed)
 
     env, test_env = env_fn(), env_fn()
-    obs_dim = env.observation.shape[0]
+    obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
     act_limit = env.action_space.high[0]
 
@@ -88,7 +88,7 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # we need q_targ(s, pi_targ(s)), so a_ph is not used
         pi_targ, _, q_pi_targ = actor_critic(x2_ph, a_ph, **ac_kwargs)
 
-    # Exprience buffer
+    # Experience buffer
     buf = ReplayBuffer(obs_dim=obs_dim, act_dim=act_dim, size=replay_size)
 
     # Count variable
@@ -106,7 +106,7 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # Separate training
     pi_optimizer = tf.train.AdamOptimizer(learning_rate=pi_lr)
     q_optimizer = tf.train.AdamOptimizer(learning_rate=q_lr)
-    trian_pi_op = pi_optimizer.minimize(pi_loss, var_list=core.get_vars('main/pi'))
+    train_pi_op = pi_optimizer.minimize(pi_loss, var_list=core.get_vars('main/pi'))
     train_q_op = q_optimizer.minimize(q_loss, var_list=core.get_vars('main/q'))
 
     # Update target network
@@ -119,7 +119,7 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    sess = tf.Session(config)
+    sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
     sess.run(target_init)
 
@@ -173,7 +173,7 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 logger.store(LossQ=outs[0], Qvals=outs[1])
 
                 # policy update
-                outs = sess.run([pi_loss, trian_pi_op, target_update], feed_dict)
+                outs = sess.run([pi_loss, train_pi_op, target_update], feed_dict)
                 logger.store(LossPi=outs[0])
             logger.store(EpRet=ep_ret, EpLen=ep_len)
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
@@ -194,10 +194,10 @@ def ddpg(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             logger.log_tabular('EpLen', average_only=True)
             logger.log_tabular('TestEpLen', average_only=True)
             logger.log_tabular('TotalEnvInteracts', t)
-            logger.log_tabular('QVals', with_min_and_max=True)
+            logger.log_tabular('Qvals', with_min_and_max=True)
             logger.log_tabular('LossPi', average_only=True)
             logger.log_tabular('LossQ', average_only=True)
-            logger.log_tabular('Time', time.time() - start_time)
+            logger.log_tabular('Time', time.time() - start)
             logger.dump_tabular()
 
 
