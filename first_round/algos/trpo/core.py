@@ -79,7 +79,7 @@ def diagonal_gaussian_kl(mu0, log_std0, mu1, log_std1):
     var0, var1 = tf.exp(2 * log_std0), tf.exp(2 * log_std1)  # var = std **2
     kl = 0.5 * (((mu1 - mu0) ** 2 + var0) / (var1 + EPS) - 1) + log_std1 - log_std0
     all_kls = tf.reduce_sum(kl, axis=1)
-    return all_kls
+    return tf.reduce_mean(all_kls)
 
 
 def categoriacl_kl(logp0, logp1):
